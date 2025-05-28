@@ -5,6 +5,7 @@ import itertools
 from datetime import datetime, timedelta
 from keep_alive import keep_alive
 
+# 텔레그램 설정
 TELEGRAM_TOKEN = "8086474503:AAEgYSqUDtb8GgL4aWkE3_VnFr4m4ea2dgU"
 TELEGRAM_CHAT_ID = "-1002618818544"
 
@@ -17,11 +18,27 @@ symbols = [
 Z_PERIOD = 300
 Z_THRESHOLD = 2.8
 RENOTIFY_COOLDOWN = 300
-start_ts_ms = 1743465600000  # 2025-04-01 00:00:00 UTC
-
 price_history = {}
 last_alert_time = {}
 
+# 바이낸스 캔들 수집
+def fetch_klines(symbol, limit=1000):
+    url = f"https://fapi.binance.com/fapi/v1/klines"
+    params = {
+        "symbol": symbol,
+        "interval": "5m",
+        "limit": limit  # startTime 제거
+    }
+    try:
+        r = requests.get(url, params=params, timeout=5)
+        r.raise_for_status()
+        data = r.json()
+        return [(int(d[0]), float(d[4])) for d in data]
+    except Exception as e:
+        print(f"[❌ 오류] {symbol}: {e}", flush=True)
+        return []
+
+# 텔레그램 전송
 def send_telegram(text, parse_mode=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     params = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
@@ -34,36 +51,17 @@ def send_telegram(text, parse_mode=None):
     except Exception as e:
         print(f"[전송 오류] {e}", flush=True)
 
-def fetch_klines(symbol, limit=1000):
-    url = "https://fapi.binance.com/fapi/v1/klines"
-    params = {
-        "symbol": symbol,
-        "interval": "5m",
-        "startTime": int((datetime.utcnow() - timedelta(days=3)).timestamp() * 1000),
-        "limit": limit
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; ZScoreBot/1.0; +https://example.com)"
-    }
-    try:
-        r = requests.get(url, params=params, headers=headers, timeout=5)
-        r.raise_for_status()
-        data = r.json()
-        return [(int(d[0]), float(d[4])) for d in data]
-    except Exception as e:
-        print(f"[❌ 오류] {symbol}: {e}", flush=True)
-        return []
-
+# 초기 가격 수집
 def prepare_price_data():
     for symbol in symbols:
-        raw = fetch_klines(symbol)
-        filtered = [(ts, price) for ts, price in raw if ts >= start_ts_ms]
-        if len(filtered) >= Z_PERIOD + 1:
-            price_history[symbol] = filtered
-            print(f"✅ {symbol}: {len(filtered)}개 수집", flush=True)
+        data = fetch_klines(symbol)
+        if len(data) >= Z_PERIOD + 1:
+            price_history[symbol] = data
+            print(f"✅ {symbol}: {len(data)}개 수집 완료", flush=True)
         else:
-            print(f"[SKIP] {symbol} → 데이터 부족 ({len(filtered)}개)", flush=True)
+            print(f"[SKIP] {symbol}: 데이터 부족 ({len(data)}개)", flush=True)
 
+# Z-score 계산
 def compute_z(s1, s2):
     d1 = price_history.get(s1)
     d2 = price_history.get(s2)
@@ -83,6 +81,7 @@ def compute_z(s1, s2):
         return None
     return (s_now - mean) / std
 
+# 루프 1회
 def monitor_once():
     alert = False
     now = time.time()
@@ -90,15 +89,6 @@ def monitor_once():
         key = f"{s1}/{s2}"
         if now - last_alert_time.get(key, 0) < RENOTIFY_COOLDOWN:
             continue
-        raw1 = fetch_klines(s1)
-        raw2 = fetch_klines(s2)
-        filtered1 = [(ts, price) for ts, price in raw1 if ts >= start_ts_ms]
-        filtered2 = [(ts, price) for ts, price in raw2 if ts >= start_ts_ms]
-        if len(filtered1) < Z_PERIOD + 1 or len(filtered2) < Z_PERIOD + 1:
-            print(f"[SKIP] {key} → 데이터 부족", flush=True)
-            continue
-        price_history[s1] = filtered1
-        price_history[s2] = filtered2
         z = compute_z(s1, s2)
         if z is None:
             print(f"[SKIP] {key} → 계산 실패", flush=True)
@@ -117,20 +107,19 @@ def monitor_once():
             alert = True
     return alert
 
+# 감시 루프
 def monitor_loop():
-    print("📌 기준시각:", datetime.fromtimestamp(start_ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S"), flush=True)
+    print("🕐 시작시간:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     prepare_price_data()
-    print("✅ 감시 시작\n", flush=True)
-    loop_count = 0
+    loop = 0
     while True:
-        print(f"🔄 Loop {loop_count} 시작", flush=True)
+        print(f"🔄 Loop {loop} 시작", flush=True)
         sent = monitor_once()
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        status = "🔔 알림 전송됨" if sent else "📭 알림 없음"
-        print(f"🕵️ [{now}] 감시 중... - {status}", flush=True)
-        loop_count += 1
-        time.sleep(10)
+        print(f"📡 상태: {'🔔 알림 있음' if sent else '📭 알림 없음'}", flush=True)
+        time.sleep(15)
+        loop += 1
 
+# 실행
 if __name__ == "__main__":
     keep_alive()
     monitor_loop()
