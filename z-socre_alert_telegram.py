@@ -17,7 +17,7 @@ symbols = [
 ]
 
 Z_PERIOD = 300
-Z_THRESHOLD = 1.0
+Z_THRESHOLD = 2.7
 RENOTIFY_COOLDOWN = 300  # 동일 페어 알림 쿨다운 5분
 
 # 기준 시각 (TradingView 기준 맞춤)
