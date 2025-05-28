@@ -47,6 +47,11 @@ def send_telegram(text, parse_mode=None):
 
 # ✅ 바이낸스 캔들 데이터 요청 함수 (캐싱 포함)
 def fetch_klines(symbol, limit=1000):
+    if symbol in price_cache:
+        return price_cache[symbol]
+
+    print(f"⏳ [요청] {symbol} 가격 데이터 요청 중...", flush=True)
+
     url = "https://fapi.binance.com/fapi/v1/klines"
     params = {
         "symbol": symbol,
@@ -54,14 +59,26 @@ def fetch_klines(symbol, limit=1000):
         "startTime": int((datetime.utcnow() - timedelta(days=3)).timestamp() * 1000),
         "limit": limit
     }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; ZScoreBot/1.0; +https://yourdomain.com)"
+    }
+
     try:
-        r = requests.get(url, params=params)
-        r.raise_for_status()
-        data = r.json()
-        return [(int(d[0]), float(d[4])) for d in data]
-    except Exception as e:
-        print(f"[오류] {symbol} 데이터 수신 실패: {e}")
-        return []
+        response = requests.get(url, params=params, headers=headers, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        result = [(int(d[0]), float(d[4])) for d in data]
+        price_cache[symbol] = result
+        print(f"✅ [성공] {symbol} 수신 완료 ({len(result)}개)", flush=True)
+        return result
+
+    except requests.exceptions.HTTPError as e:
+        print(f"[❌ 오류] {symbol} 데이터 수신 실패: {e} ({response.status_code})", flush=True)
+    except requests.exceptions.RequestException as e:
+        print(f"[❌ 오류] {symbol} 네트워크 문제: {e}", flush=True)
+    
+    return []
 
 # ✅ Z-score 계산 함수
 def compute_z(s1, s2):
