@@ -21,7 +21,7 @@ Z_THRESHOLD = 2.8
 RENOTIFY_COOLDOWN = 300  # 동일 페어 알림 쿨다운 5분
 
 # 기준 시각 (TradingView 기준 맞춤)
-start_ts_ms = 1743465600000  # 2025-04-01 00:00:00 기준
+start_ts_ms = 1743465600000  # 2025-04-01 00:00:00 UTC
 
 # 전역 상태 저장
 price_history = {}
@@ -49,8 +49,11 @@ def fetch_klines(symbol, limit=1000):
         "startTime": int((datetime.utcnow() - timedelta(days=3)).timestamp() * 1000),
         "limit": limit
     }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; ZScoreBot/1.0; +https://yourdomain.com)"
+    }
     try:
-        r = requests.get(url, params=params, timeout=5)
+        r = requests.get(url, params=params, headers=headers, timeout=5)
         r.raise_for_status()
         data = r.json()
         return [(int(d[0]), float(d[4])) for d in data]
@@ -62,6 +65,7 @@ def fetch_klines(symbol, limit=1000):
 def prepare_price_data():
     for symbol in symbols:
         raw = fetch_klines(symbol)
+        time.sleep(1.2)
         filtered = [(ts, price) for ts, price in raw if ts >= start_ts_ms]
         if len(filtered) >= Z_PERIOD + 1:
             price_history[symbol] = filtered
@@ -98,7 +102,9 @@ def monitor_once():
         if now - last_alert_time.get(key, 0) < RENOTIFY_COOLDOWN:
             continue
         raw1 = fetch_klines(s1)
+        time.sleep(1.2)
         raw2 = fetch_klines(s2)
+        time.sleep(1.2)
         filtered1 = [(ts, price) for ts, price in raw1 if ts >= start_ts_ms]
         filtered2 = [(ts, price) for ts, price in raw2 if ts >= start_ts_ms]
         if len(filtered1) < Z_PERIOD + 1 or len(filtered2) < Z_PERIOD + 1:
@@ -141,5 +147,5 @@ def monitor_loop():
 
 # ✅ 실행 시작
 if __name__ == "__main__":
-    keep_alive()  # 🌐 Render Ping용 서버
+    keep_alive()
     monitor_loop()
