@@ -33,14 +33,24 @@ def fetch_klines(symbol, limit=1000):
         "startTime": int((datetime.utcnow() - timedelta(days=3)).timestamp() * 1000),
         "limit": limit
     }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; ZScoreBot/1.0; +https://yourdomain.com)"
+    }
+
     try:
-        r = requests.get(url, params=params)
-        r.raise_for_status()
-        data = r.json()
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
         return [(int(d[0]), float(d[4])) for d in data]
-    except Exception as e:
-        print(f"[오류] {symbol} 데이터 수신 실패: {e}")
-        return []
+
+    except requests.exceptions.HTTPError as e:
+        print(f"[❌ 오류] {symbol} 데이터 수신 실패: {e} ({response.status_code})")
+    except requests.exceptions.RequestException as e:
+        print(f"[❌ 오류] {symbol} 네트워크 문제: {e}")
+    
+    return []
+
 
 def send_telegram(text, parse_mode=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
