@@ -154,12 +154,18 @@ def monitor_once():
 def monitor_loop():
     print("📌 기준시각:", datetime.fromtimestamp(start_ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S"))
     print("✅ 감시 시작\n")
+
+    loop_count = 0
+
     while True:
+        print(f"🔄 Loop {loop_count} 시작")  # ← 여기를 추가!
         sent = monitor_once()
         t = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         status = "🔔 알림 전송됨" if sent else "📭 알림 없음"
         print(f"🕵️ [{t}] 감시 중... - {status}")
         time.sleep(10)
+        loop_count += 1
+
 
 # ✅ 실행 시작
 if __name__ == "__main__":
