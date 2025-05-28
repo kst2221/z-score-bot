@@ -17,7 +17,7 @@ symbols = [
 ]
 
 Z_PERIOD = 300
-Z_THRESHOLD = 2.9
+Z_THRESHOLD = 2.5
 RENOTIFY_COOLDOWN = 300  # 동일 쌍 알림 쿨다운 (초)
 
 # 기준 시각 (과거 데이터 필터 기준)
