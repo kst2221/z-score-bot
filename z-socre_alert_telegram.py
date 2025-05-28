@@ -3,13 +3,11 @@ import numpy as np
 import time
 import itertools
 from datetime import datetime, timedelta
-from keep_alive import keep_alive  # 🌐 Ping 유지용 웹서버
+from keep_alive import keep_alive
 
-# ✅ 텔레그램 설정
 TELEGRAM_TOKEN = "8086474503:AAEgYSqUDtb8GgL4aWkE3_VnFr4m4ea2dgU"
 TELEGRAM_CHAT_ID = "-1002618818544"
 
-# ✅ 감시할 종목 목록
 symbols = [
     "BTCUSDT", "ETHUSDT", "ETCUSDT", "SOLUSDT", "ADAUSDT",
     "DOTUSDT", "XRPUSDT", "XLMUSDT", "DOGEUSDT", "1000SHIBUSDT",
@@ -18,16 +16,12 @@ symbols = [
 
 Z_PERIOD = 300
 Z_THRESHOLD = 2.8
-RENOTIFY_COOLDOWN = 300  # 동일 페어 알림 쿨다운 5분
-
-# 기준 시각 (TradingView 기준 맞춤)
+RENOTIFY_COOLDOWN = 300
 start_ts_ms = 1743465600000  # 2025-04-01 00:00:00 UTC
 
-# 전역 상태 저장
 price_history = {}
 last_alert_time = {}
 
-# ✅ 텔레그램 메시지 전송 함수
 def send_telegram(text, parse_mode=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     params = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
@@ -40,7 +34,6 @@ def send_telegram(text, parse_mode=None):
     except Exception as e:
         print(f"[전송 오류] {e}", flush=True)
 
-# ✅ 바이낸스 캔들 수집 함수
 def fetch_klines(symbol, limit=1000):
     url = "https://fapi.binance.com/fapi/v1/klines"
     params = {
@@ -50,7 +43,7 @@ def fetch_klines(symbol, limit=1000):
         "limit": limit
     }
     headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; ZScoreBot/1.0; +https://yourdomain.com)"
+        "User-Agent": "Mozilla/5.0 (compatible; ZScoreBot/1.0; +https://example.com)"
     }
     try:
         r = requests.get(url, params=params, headers=headers, timeout=5)
@@ -61,11 +54,9 @@ def fetch_klines(symbol, limit=1000):
         print(f"[❌ 오류] {symbol}: {e}", flush=True)
         return []
 
-# ✅ 전 종목 가격 데이터 초기 수집
 def prepare_price_data():
     for symbol in symbols:
         raw = fetch_klines(symbol)
-        time.sleep(1.2)
         filtered = [(ts, price) for ts, price in raw if ts >= start_ts_ms]
         if len(filtered) >= Z_PERIOD + 1:
             price_history[symbol] = filtered
@@ -73,7 +64,6 @@ def prepare_price_data():
         else:
             print(f"[SKIP] {symbol} → 데이터 부족 ({len(filtered)}개)", flush=True)
 
-# ✅ Z-score 계산
 def compute_z(s1, s2):
     d1 = price_history.get(s1)
     d2 = price_history.get(s2)
@@ -93,7 +83,6 @@ def compute_z(s1, s2):
         return None
     return (s_now - mean) / std
 
-# ✅ 감시 루프 1회
 def monitor_once():
     alert = False
     now = time.time()
@@ -102,9 +91,7 @@ def monitor_once():
         if now - last_alert_time.get(key, 0) < RENOTIFY_COOLDOWN:
             continue
         raw1 = fetch_klines(s1)
-        time.sleep(1.2)
         raw2 = fetch_klines(s2)
-        time.sleep(1.2)
         filtered1 = [(ts, price) for ts, price in raw1 if ts >= start_ts_ms]
         filtered2 = [(ts, price) for ts, price in raw2 if ts >= start_ts_ms]
         if len(filtered1) < Z_PERIOD + 1 or len(filtered2) < Z_PERIOD + 1:
@@ -130,7 +117,6 @@ def monitor_once():
             alert = True
     return alert
 
-# ✅ 메인 루프
 def monitor_loop():
     print("📌 기준시각:", datetime.fromtimestamp(start_ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S"), flush=True)
     prepare_price_data()
@@ -142,10 +128,9 @@ def monitor_loop():
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         status = "🔔 알림 전송됨" if sent else "📭 알림 없음"
         print(f"🕵️ [{now}] 감시 중... - {status}", flush=True)
-        time.sleep(10)
         loop_count += 1
+        time.sleep(10)
 
-# ✅ 실행 시작
 if __name__ == "__main__":
     keep_alive()
     monitor_loop()
