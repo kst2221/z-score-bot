@@ -155,19 +155,19 @@ def monitor_once():
 
 # ✅ 루프 감시 시작 함수
 def monitor_loop():
-    print("📌 기준시각:", datetime.fromtimestamp(start_ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S"), flush=True)
-    print("✅ 감시 시작\n", flush=True)
-
+    print("📌 기준시각:", datetime.fromtimestamp(start_ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S"))
+    prepare_price_data()  # 딱 한 번만 수행
+    print("✅ 감시 시작\n")
     loop_count = 0
-
     while True:
         print(f"🔄 Loop {loop_count} 시작", flush=True)
-        sent = monitor_once()
-        t = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        sent = monitor_once()  # fetch_klines 없이 price_cache 기준으로만
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         status = "🔔 알림 전송됨" if sent else "📭 알림 없음"
-        print(f"🕵️ [{t}] 감시 중... - {status}", flush=True)
+        print(f"🕵️ [{now}] 감시 중... - {status}", flush=True)
         time.sleep(10)
         loop_count += 1
+
 
 # ✅ 실행 시작
 if __name__ == "__main__":
