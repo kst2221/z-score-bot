@@ -3,6 +3,7 @@ import numpy as np
 import time
 import itertools
 from datetime import datetime, timedelta
+from keep_alive import keep_alive
 
 # ✅ 텔레그램 설정
 TELEGRAM_TOKEN = "8086474503:AAEgYSqUDtb8GgL4aWkE3_VnFr4m4ea2dgU"
@@ -171,4 +172,5 @@ def monitor_loop():
 
 # ✅ 실행 시작
 if __name__ == "__main__":
-    monitor_loop()
+    keep_alive()     # 🟢 웹서버 실행
+    monitor_loop()   # 🔁 알림 감시 루프
