@@ -49,6 +49,8 @@ def fetch_klines(symbol, limit=1000):
     if symbol in price_cache:
         return price_cache[symbol]
 
+    print(f"⏳ [요청] {symbol} 가격 데이터 요청 중...", flush=True)
+
     url = "https://fapi.binance.com/fapi/v1/klines"
     params = {
         "symbol": symbol,
@@ -62,19 +64,21 @@ def fetch_klines(symbol, limit=1000):
     }
 
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response = requests.get(url, params=params, headers=headers, timeout=5)
         response.raise_for_status()
         data = response.json()
         result = [(int(d[0]), float(d[4])) for d in data]
         price_cache[symbol] = result
+        print(f"✅ [성공] {symbol} 수신 완료 ({len(result)}개)", flush=True)
         return result
 
     except requests.exceptions.HTTPError as e:
-        print(f"[❌ 오류] {symbol} 데이터 수신 실패: {e} ({response.status_code})")
+        print(f"[❌ 오류] {symbol} 데이터 수신 실패: {e} ({response.status_code})", flush=True)
     except requests.exceptions.RequestException as e:
-        print(f"[❌ 오류] {symbol} 네트워크 문제: {e}")
+        print(f"[❌ 오류] {symbol} 네트워크 문제: {e}", flush=True)
     
     return []
+
 
 # ✅ Z-score 계산 함수
 def compute_z(s1, s2):
@@ -152,20 +156,19 @@ def monitor_once():
 
 # ✅ 루프 감시 시작 함수
 def monitor_loop():
-    print("📌 기준시각:", datetime.fromtimestamp(start_ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S"))
-    print("✅ 감시 시작\n")
+    print("📌 기준시각:", datetime.fromtimestamp(start_ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S"), flush=True)
+    print("✅ 감시 시작\n", flush=True)
 
     loop_count = 0
 
     while True:
-        print(f"🔄 Loop {loop_count} 시작")  # ← 여기를 추가!
+        print(f"🔄 Loop {loop_count} 시작", flush=True)
         sent = monitor_once()
         t = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         status = "🔔 알림 전송됨" if sent else "📭 알림 없음"
-        print(f"🕵️ [{t}] 감시 중... - {status}")
+        print(f"🕵️ [{t}] 감시 중... - {status}", flush=True)
         time.sleep(10)
         loop_count += 1
-
 
 # ✅ 실행 시작
 if __name__ == "__main__":
