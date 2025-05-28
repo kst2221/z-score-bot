@@ -40,9 +40,9 @@ def send_telegram(text, parse_mode=None):
     try:
         r = requests.get(url, params=params)
         r.raise_for_status()
-        print(f"📤 전송됨: {text}")
+        print(f"📤 전송됨:\n{text}", flush=True)
     except Exception as e:
-        print(f"[전송 오류] {e}")
+        print(f"[전송 오류] {e}", flush=True)
 
 # ✅ 바이낸스 캔들 데이터 요청 함수 (캐싱 포함)
 def fetch_klines(symbol, limit=1000):
@@ -78,7 +78,6 @@ def fetch_klines(symbol, limit=1000):
         print(f"[❌ 오류] {symbol} 네트워크 문제: {e}", flush=True)
     
     return []
-
 
 # ✅ Z-score 계산 함수
 def compute_z(s1, s2):
@@ -119,7 +118,7 @@ def monitor_once():
             continue
 
         raw1 = fetch_klines(s1)
-        time.sleep(0.75)  # 요청 간격 확보
+        time.sleep(0.75)
         raw2 = fetch_klines(s2)
         time.sleep(0.75)
 
@@ -127,7 +126,7 @@ def monitor_once():
         filtered2 = [(ts, price) for ts, price in raw2 if ts >= start_ts_ms]
 
         if len(filtered1) < Z_PERIOD + 1 or len(filtered2) < Z_PERIOD + 1:
-            print(f"[SKIP] {key} → 데이터 부족 ({len(filtered1)} / {len(filtered2)})")
+            print(f"[SKIP] {key} → 데이터 부족 ({len(filtered1)} / {len(filtered2)})", flush=True)
             continue
 
         price_cache[s1] = filtered1
@@ -135,7 +134,7 @@ def monitor_once():
 
         z = compute_z(s1, s2)
         if z is None:
-            print(f"[SKIP] {key} → Z-score 계산 실패")
+            print(f"[SKIP] {key} → Z-score 계산 실패", flush=True)
             continue
 
         if abs(z) >= Z_THRESHOLD:
