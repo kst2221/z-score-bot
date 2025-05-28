@@ -35,20 +35,26 @@ def send_telegram(text, parse_mode=None):
         print(f"[전송 오류] {e}", flush=True)
 
 # ✅ 캔들 요청 (startTime 제거, limit=500)
-def fetch_klines(symbol, limit=500):
+def fetch_klines(symbol, limit=1000):
     url = "https://fapi.binance.com/fapi/v1/klines"
     params = {
         "symbol": symbol,
         "interval": "5m",
+        "startTime": int((datetime.utcnow() - timedelta(days=3)).timestamp() * 1000),
         "limit": limit
     }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; ZScoreBot/1.0; +https://yourdomain.com)"
+    }
     try:
-        r = requests.get(url, params=params, timeout=5)
+        r = requests.get(url, params=params, headers=headers, timeout=5)
         r.raise_for_status()
-        return [(int(d[0]), float(d[4])) for d in r.json()]
+        data = r.json()
+        return [(int(d[0]), float(d[4])) for d in data]
     except Exception as e:
         print(f"[❌ 오류] {symbol}: {e}", flush=True)
         return []
+
 
 # ✅ Z-score 계산
 def compute_z(s1, s2):
