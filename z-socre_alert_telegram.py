@@ -106,41 +106,55 @@ def compute_z(s1, s2):
 def monitor_once():
     alert = False
     now = time.time()
+    
+    # 모든 종목쌍 반복 (조합 기준)
     for s1, s2 in itertools.combinations(symbols, 2):
         key = f"{s1}/{s2}"
         last_time = last_alert_time.get(key, 0)
 
-        if now - last_time >= RENOTIFY_COOLDOWN:
-            raw1 = fetch_klines(s1, limit=1000)
-            raw2 = fetch_klines(s2, limit=1000)
-            filtered1 = [(ts, price) for ts, price in raw1 if ts >= start_ts_ms]
-            filtered2 = [(ts, price) for ts, price in raw2 if ts >= start_ts_ms]
-            if len(filtered1) < Z_PERIOD + 1 or len(filtered2) < Z_PERIOD + 1:
-                print(f"[SKIP] {key} → 데이터 부족")
-                continue
-            price_history[s1] = filtered1
-            price_history[s2] = filtered2
+        if now - last_time < RENOTIFY_COOLDOWN:
+            continue  # 알림 쿨다운 중이면 건너뜀
 
-            z = compute_z(s1, s2)
-            if z is None:
-                print(f"[SKIP] {key} → 계산 실패")
-                continue
+        # ✅ 각 종목에 대해 개별 fetch 요청
+        raw1 = fetch_klines(s1, limit=1000)
+        time.sleep(0.3)  # 요청 간 텀
+        raw2 = fetch_klines(s2, limit=1000)
+        time.sleep(0.3)
 
-            if abs(z) >= Z_THRESHOLD:
-                direction = "▲ 상승" if z > 0 else "▼ 하락"
-                icon = "🔴" if abs(z) >= 3.0 else "📊"
-                z_value = f"<b>{z:.3f}</b>" if abs(z) >= 3.0 else f"{z:.3f}"
+        # ✅ 유효 데이터 필터링
+        filtered1 = [(ts, price) for ts, price in raw1 if ts >= start_ts_ms]
+        filtered2 = [(ts, price) for ts, price in raw2 if ts >= start_ts_ms]
 
-                msg = (
-                    f"{icon} <b>Z-score 감지</b>\n"
-                    f"페어: <code>{s1} / {s2}</code>\n"
-                    f"Z-score: {z_value} {direction}"
-                )
-                send_telegram(msg, parse_mode="HTML")
-                last_alert_time[key] = now
-                alert = True
+        if len(filtered1) < Z_PERIOD + 1 or len(filtered2) < Z_PERIOD + 1:
+            print(f"[SKIP] {key} → 데이터 부족 ({len(filtered1)} / {len(filtered2)})")
+            continue
+
+        price_history[s1] = filtered1
+        price_history[s2] = filtered2
+
+        # ✅ Z-score 계산
+        z = compute_z(s1, s2)
+        if z is None:
+            print(f"[SKIP] {key} → Z-score 계산 실패")
+            continue
+
+        # ✅ 알림 조건
+        if abs(z) >= Z_THRESHOLD:
+            direction = "▲ 상승" if z > 0 else "▼ 하락"
+            icon = "🔴" if abs(z) >= 3.0 else "📊"
+            z_value = f"<b>{z:.3f}</b>" if abs(z) >= 3.0 else f"{z:.3f}"
+
+            msg = (
+                f"{icon} <b>Z-score 감지</b>\n"
+                f"페어: <code>{s1} / {s2}</code>\n"
+                f"Z-score: {z_value} {direction}"
+            )
+            send_telegram(msg, parse_mode="HTML")
+            last_alert_time[key] = now
+            alert = True
 
     return alert
+
 
 def monitor_loop():
     print("📌 기준시각:", datetime.fromtimestamp(start_ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S"))
