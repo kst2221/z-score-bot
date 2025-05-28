@@ -16,7 +16,7 @@ symbols = [
 ]
 
 Z_PERIOD = 300
-Z_THRESHOLD = 2.9
+Z_THRESHOLD = 2.5
 RENOTIFY_COOLDOWN = 300
 start_ts_ms = int(datetime(2025, 4, 1, 0, 0).timestamp() * 1000)
 
