@@ -17,7 +17,7 @@ symbols = [
 ]
 
 Z_PERIOD = 300
-Z_THRESHOLD = 2.9
+Z_THRESHOLD = 1.5
 RENOTIFY_COOLDOWN = 300  # 5분
 
 # 기준 시점 (TradingView와 정합)
