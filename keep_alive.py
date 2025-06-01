@@ -1,5 +1,4 @@
 from flask import Flask
-from threading import Thread
 import os
 
 app = Flask(__name__)
@@ -9,9 +8,8 @@ def home():
     return "✅ I'm alive!"
 
 def run():
-    port = int(os.environ.get("PORT", 8080))  # Render가 자동 지정한 포트를 사용
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
 
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
+if __name__ == "__main__":
+    run()  # ← Render가 이 entrypoint를 감지함
