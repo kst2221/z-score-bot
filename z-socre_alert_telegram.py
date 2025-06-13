@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 TELEGRAM_TOKEN = "8086474503:AAEgYSqUDtb8GgL4aWkE3_VnFr4m4ea2dgU"
 TELEGRAM_CHAT_ID = "-1002618818544"
 
-# ✅ 감시할 종목 목록
+# ✅ 감시 종목 목록
 symbols = [
     "BTCUSDT", "ETHUSDT", "ETCUSDT", "SOLUSDT", "ADAUSDT",
     "DOTUSDT", "XRPUSDT", "XLMUSDT", "DOGEUSDT", "1000SHIBUSDT",
@@ -17,26 +17,31 @@ symbols = [
 
 Z_PERIOD = 300
 Z_THRESHOLD = 2.8
-RENOTIFY_COOLDOWN = 300
+RENOTIFY_COOLDOWN = 300  # 5분 쿨다운
 start_ts_ms = int(datetime(2025, 4, 1, 0, 0).timestamp() * 1000)
 
 price_cache = {}
 last_alert_time = {}
 
-# ✅ 텔레그램 메시지 전송 함수
-def send_telegram(text, parse_mode=None):
+# ✅ 텔레그램 메시지 전송 (묶음)
+def send_telegram_bundled(messages):
+    if not messages:
+        return
+    full_msg = "<b>📊 Z-score 감지 알림</b>\n\n" + "\n\n".join(messages)
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    params = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
-    if parse_mode:
-        params["parse_mode"] = parse_mode
+    params = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": full_msg,
+        "parse_mode": "HTML"
+    }
     try:
         r = requests.get(url, params=params)
         r.raise_for_status()
-        print(f"📤 전송됨:\n{text}", flush=True)
+        print("📤 묶음 알림 전송됨", flush=True)
     except Exception as e:
         print(f"[전송 오류] {e}", flush=True)
 
-# ✅ 초기 전체 데이터 수집
+# ✅ 최초 전체 수집
 def init_fetch_all_prices():
     for symbol in symbols:
         url = "https://fapi.binance.com/fapi/v1/klines"
@@ -46,11 +51,8 @@ def init_fetch_all_prices():
             "startTime": int((datetime.utcnow() - timedelta(days=3)).timestamp() * 1000),
             "limit": 1000
         }
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
         try:
-            r = requests.get(url, params=params, headers=headers, timeout=5)
+            r = requests.get(url, params=params, timeout=5)
             r.raise_for_status()
             data = r.json()
             filtered = [(int(d[0]), float(d[4])) for d in data if int(d[0]) >= start_ts_ms]
@@ -59,29 +61,22 @@ def init_fetch_all_prices():
         except Exception as e:
             print(f"[❌ 초기 오류] {symbol}: {e}", flush=True)
 
-# ✅ 최신 봉 1개만 추가
+# ✅ 최신 봉만 추가
 def fetch_latest_price(symbol):
     url = f"https://fapi.binance.com/fapi/v1/klines"
-    params = {
-        "symbol": symbol,
-        "interval": "5m",
-        "limit": 1
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    params = {"symbol": symbol, "interval": "5m", "limit": 1}
     try:
-        r = requests.get(url, params=params, headers=headers, timeout=3)
+        r = requests.get(url, params=params, timeout=3)
         r.raise_for_status()
         data = r.json()
         ts, price = int(data[-1][0]), float(data[-1][4])
         if symbol in price_cache and (len(price_cache[symbol]) == 0 or ts > price_cache[symbol][-1][0]):
             price_cache[symbol].append((ts, price))
-            price_cache[symbol] = price_cache[symbol][-Z_PERIOD-10:]
+            price_cache[symbol] = price_cache[symbol][-Z_PERIOD - 10:]
     except Exception as e:
         print(f"[❌ 최신 봉 오류] {symbol}: {e}", flush=True)
 
-# ✅ Z-score 계산 함수
+# ✅ Z-score 계산
 def compute_z(s1, s2):
     d1 = price_cache.get(s1)
     d2 = price_cache.get(s2)
@@ -105,10 +100,11 @@ def compute_z(s1, s2):
 def monitor_once():
     alert = False
     now = time.time()
+    messages = []
 
     for symbol in symbols:
         fetch_latest_price(symbol)
-        time.sleep(0.15)  # 요청 간격 분산
+        time.sleep(0.1)
 
     for s1, s2 in itertools.combinations(symbols, 2):
         key = f"{s1}/{s2}"
@@ -123,17 +119,19 @@ def monitor_once():
             icon = "🔴" if abs(z) >= 3.0 else "📊"
             z_value = f"<b>{z:.3f}</b>" if abs(z) >= 3.0 else f"{z:.3f}"
             msg = (
-                f"{icon} <b>Z-score 감지</b>\n"
-                f"페어: <code>{s1} / {s2}</code>\n"
+                f"{icon} <code>{s1} / {s2}</code>\n"
                 f"Z-score: {z_value} {direction}"
             )
-            send_telegram(msg, parse_mode="HTML")
+            messages.append(msg)
             last_alert_time[key] = now
             alert = True
 
+    if messages:
+        send_telegram_bundled(messages)
+
     return alert
 
-# ✅ 실행 루프 시작
+# ✅ 루프 시작
 def monitor_loop():
     print("📌 초기 데이터 수집 중...", flush=True)
     init_fetch_all_prices()
@@ -146,7 +144,7 @@ def monitor_loop():
         status = "🔔 알림 전송됨" if sent else "📭 알림 없음"
         print(f"🕵️ [{now}] 감시 중... - {status}", flush=True)
         loop_count += 1
-        time.sleep(20)  # ✅ 루프 주기 20초
+        time.sleep(10)
 
 # ✅ 실행
 if __name__ == "__main__":
