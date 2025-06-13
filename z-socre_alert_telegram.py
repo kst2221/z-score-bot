@@ -46,8 +46,11 @@ def init_fetch_all_prices():
             "startTime": int((datetime.utcnow() - timedelta(days=3)).timestamp() * 1000),
             "limit": 1000
         }
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
         try:
-            r = requests.get(url, params=params, timeout=5)
+            r = requests.get(url, params=params, headers=headers, timeout=5)
             r.raise_for_status()
             data = r.json()
             filtered = [(int(d[0]), float(d[4])) for d in data if int(d[0]) >= start_ts_ms]
@@ -57,7 +60,6 @@ def init_fetch_all_prices():
             print(f"[❌ 초기 오류] {symbol}: {e}", flush=True)
 
 # ✅ 최신 봉 1개만 추가
-
 def fetch_latest_price(symbol):
     url = f"https://fapi.binance.com/fapi/v1/klines"
     params = {
@@ -65,8 +67,11 @@ def fetch_latest_price(symbol):
         "interval": "5m",
         "limit": 1
     }
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
     try:
-        r = requests.get(url, params=params, timeout=3)
+        r = requests.get(url, params=params, headers=headers, timeout=3)
         r.raise_for_status()
         data = r.json()
         ts, price = int(data[-1][0]), float(data[-1][4])
@@ -103,7 +108,7 @@ def monitor_once():
 
     for symbol in symbols:
         fetch_latest_price(symbol)
-        time.sleep(0.1)
+        time.sleep(0.15)  # 요청 간격 분산
 
     for s1, s2 in itertools.combinations(symbols, 2):
         key = f"{s1}/{s2}"
@@ -141,7 +146,7 @@ def monitor_loop():
         status = "🔔 알림 전송됨" if sent else "📭 알림 없음"
         print(f"🕵️ [{now}] 감시 중... - {status}", flush=True)
         loop_count += 1
-        time.sleep(10)
+        time.sleep(20)  # ✅ 루프 주기 20초
 
 # ✅ 실행
 if __name__ == "__main__":
