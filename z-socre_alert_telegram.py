@@ -49,7 +49,7 @@ def init_fetch_all_prices():
             "symbol": symbol,
             "interval": "5m",
             "startTime": int((datetime.utcnow() - timedelta(days=3)).timestamp() * 1000),
-            "limit": 1000
+            "limit": 700
         }
         try:
             r = requests.get(url, params=params, timeout=5)
@@ -149,4 +149,5 @@ def monitor_loop():
 # ✅ 실행
 if __name__ == "__main__":
     monitor_loop()
+
 
